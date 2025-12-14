@@ -1,46 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Todo App - Flask</title>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.css">
-        <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.js"></script>
-    </head>
-    <body>
-        <div style="margin-top: 50px;" class="ui container">
-            <h1 class="ui center aligned header">Flask ToDo App</h1>
 
-            <form class="ui form" action="/add" method="post">
-                <div class="field">
-                    <label>Todo Title</label>
-                    <input type="text" name="title" placeholder="Enter ToDo task...">
-                    <br>
-                </div>
-                <button class="ui blue button" type="submit">Add</button>
-            </form>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Native ToDo App</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.js"></script>
+</head>
 
-            <hr>
+<body>
+    <div style="margin-top: 50px;" class="ui container">
+        <h1 class="ui center aligned header">Cloud ToDo App</h1>
 
-            {% for todo in todo_list %} 
-            <div class="ui segment">
-                <p class="ui big header">{{ todo.id }} | {{ todo.title }}</p>
-
-                {% if todo.complete == False %}
-                <span class="ui gray label">Not Complete</span>
-                {% else %}
-                <span class="ui green label">Complete</span>
-                {% endif %}
-
-                <a class="ui blue button" href="/update/{{ todo.id }}">Update</a>
-                <a class="ui red button" href="/delete/{{ todo.id }}">Delete</a>
-
+        <form class="ui form" action="/create" method="post" enctype="multipart/form-data">
+            
+            <div class="field">
+                <label>Todo Title (Will be Encoded)</label>
+                <input type="text" name="title" placeholder="Enter task..." required>
             </div>
-            {% endfor %}
 
+            <div class="field">
+                <label>Image (Will be Compressed)</label>
+                <input type="file" name="file" accept="image/*">
+            </div>
+
+            <button class="ui blue button" type="submit">Add Item</button>
+        </form>
+
+        <hr>
+
+        {% for todo in todo_list %}
+        <div class="ui segment">
+            <h3 class="header">{{ todo.caption }}</h3>
+
+            {% if todo.status == 'completed' %}
+                <img src="{{ todo.compressed_image_url }}" class="ui medium rounded image">
+            
+            {% elif todo.status == 'processing' %}
+                <div class="ui active centered inline loader"></div>
+                <p style="text-align:center; color:grey;">Compressing...</p>
+            
+            {% endif %}
+
+            <div style="margin-top: 10px;">
+                <a href="/update/{{ todo.id }}" class="ui button {{ 'green' if todo.complete else '' }}">
+                    {{ 'Completed' if todo.complete else 'Mark Complete' }}
+                </a>
+                <a href="/delete/{{ todo.id }}" class="ui red button">Delete</a>
+            </div>
         </div>
+        {% endfor %}
 
-
-    </body>
+    </div>
+</body>
 
 </html>
