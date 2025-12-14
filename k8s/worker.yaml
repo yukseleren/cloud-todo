@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+      - name: worker
+        image: gcr.io/YOUR_PROJECT_ID/todo-worker:v1 # <--- UPDATE THIS
+        env:
+        - name: GCP_PROJECT
+          value: "YOUR_PROJECT_ID"
+        - name: RAW_BUCKET
+          value: "YOUR_RAW_BUCKET_NAME"
+        - name: PUBLIC_BUCKET
+          value: "YOUR_PUBLIC_BUCKET_NAME"
+        
+      # Worker also needs DB access to update status
+      - name: cloud-sql-proxy
+        image: gcr.io/cloudsql-docker/gce-proxy:1.33.0
+        command:
+          - "/cloud_sql_proxy"
+          - "-instances=YOUR_DB_CONNECTION_NAME=tcp:5432"

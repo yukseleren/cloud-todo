@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+      - name: api
+        image: gcr.io/YOUR_PROJECT_ID/todo-api:v1 # <--- UPDATE THIS
+        env:
+        - name: GCP_PROJECT
+          value: "YOUR_PROJECT_ID"
+        - name: RAW_BUCKET
+          value: "YOUR_RAW_BUCKET_NAME"
+        - name: ENCODER_URL
+          value: "YOUR_CLOUD_FUNCTION_URL" # <--- PASTE URL HERE
+        
+      # The Sidecar that lets you talk to the DB securely
+      - name: cloud-sql-proxy
+        image: gcr.io/cloudsql-docker/gce-proxy:1.33.0
+        command:
+          - "/cloud_sql_proxy"
+          - "-instances=YOUR_DB_CONNECTION_NAME=tcp:5432" # <--- UPDATE THIS
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: todo-api-service
+spec:
+  type: LoadBalancer # Gives you a Public IP
+  selector:
+    app: api
+  ports:
+  - port: 80
+    targetPort: 80
