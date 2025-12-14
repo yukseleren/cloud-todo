@@ -97,7 +97,7 @@ async def create_item(
     status = "text_only"
     filename = None
     
-    if file:
+    if file and file.filename:
         file_id = str(uuid.uuid4())
         filename = f"{file_id}.jpg"
         
@@ -120,7 +120,7 @@ async def create_item(
     db.refresh(new_todo)
 
     # D. Trigger Microservice Worker via Pub/Sub
-    if file:
+    if file and file.filename:
         message = {"todo_id": new_todo.id, "filename": filename}
         publisher.publish(topic_path, json.dumps(message).encode("utf-8"))
 

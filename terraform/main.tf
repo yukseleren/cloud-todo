@@ -13,6 +13,12 @@ variable "project_id" {
   type        = string
 }
 
+variable "db_password" {
+  description = "The database password"
+  type        = string
+  sensitive   = true # Hides it from logs
+}
+
 variable "region" {
   description = "Region for all resources"
   type        = string
@@ -25,7 +31,6 @@ provider "google" {
 }
 
 # --- 2. STORAGE BUCKETS ---
-# Random ID to ensure bucket names are unique globally
 resource "random_id" "bucket_suffix" {
   byte_length = 4
 }
@@ -42,7 +47,6 @@ resource "google_storage_bucket" "processed_images" {
   force_destroy = true
 }
 
-# Bucket to hold the Cloud Function Code
 resource "google_storage_bucket" "func_bucket" {
   name          = "func-source-${var.project_id}-${random_id.bucket_suffix.hex}"
   location      = "US"
@@ -56,9 +60,9 @@ resource "google_sql_database_instance" "postgres" {
   region           = var.region
 
   settings {
-    tier = "db-f1-micro" # Cheapest tier for demo
+    tier = "db-f1-micro"
   }
-  deletion_protection = false # Allows 'terraform destroy' to work
+  deletion_protection = false 
 }
 
 resource "google_sql_database" "database" {
@@ -69,7 +73,8 @@ resource "google_sql_database" "database" {
 resource "google_sql_user" "users" {
   name     = "app_user"
   instance = google_sql_database_instance.postgres.name
-  password = "securepassword" # In production, use secrets!
+  # Use the variable instead of "securepassword"
+  password = var.db_password 
 }
 
 # --- 4. PUB/SUB ---
@@ -83,7 +88,6 @@ resource "google_pubsub_subscription" "worker_sub" {
 }
 
 # --- 5. CLOUD FUNCTION (SERVERLESS ENCODER) ---
-# Zip the 'functions' folder automatically
 data "archive_file" "function_zip" {
   type        = "zip"
   source_dir  = "${path.module}/../functions"
@@ -96,9 +100,15 @@ resource "google_storage_bucket_object" "archive" {
   source = data.archive_file.function_zip.output_path
 }
 
+resource "google_storage_bucket_iam_member" "public_access" {
+  bucket = google_storage_bucket.processed_images.name
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
+}
+
 resource "google_cloudfunctions_function" "security_service" {
   name        = "crypto-func"
-  description = "Encrypts text"
+  description = "Encrypts text using substitution"
   runtime     = "python310"
   region      = var.region
 
@@ -106,11 +116,9 @@ resource "google_cloudfunctions_function" "security_service" {
   source_archive_bucket = google_storage_bucket.func_bucket.name
   source_archive_object = google_storage_bucket_object.archive.name
   trigger_http          = true
-  entry_point           = "crypto_service" # Must match function name in main.py
+  entry_point           = "crypto_handler" # Updated to match your new function name
 
-  environment_variables = {
-    ENCRYPTION_KEY = "CHANGE_ME_TO_A_REAL_KEY" # Run python to gen key
-  }
+  # Note: Environment variables removed as they are no longer needed
 }
 
 # Make Function Public for Demo
@@ -122,26 +130,30 @@ resource "google_cloudfunctions_function_iam_member" "invoker" {
   member         = "allUsers"
 }
 
-# --- 6. GKE CLUSTER ---
+# --- 6. GKE CLUSTER (UPDATED FIX) ---
 resource "google_container_cluster" "primary" {
   name     = "todo-cluster"
-  location = var.region
   
-  # We use a simple 1-node cluster for the demo to save money/time
+  # FIX 1: Use a specific ZONE (e.g., us-central1-a) instead of a REGION.
+  # This prevents Google from creating 3 copies of your cluster.
+  location = "${var.region}-a" 
+  
   initial_node_count = 1
 
   node_config {
     machine_type = "e2-medium"
     
-    # CRITICAL: Give nodes permission to talk to GCS and Cloud SQL
+    # FIX 2: Reduce disk size from 100GB (default) to 30GB to save quota
+    disk_size_gb = 30
+    disk_type    = "pd-standard" # Cheaper than SSD
+    
     oauth_scopes = [
       "https://www.googleapis.com/auth/cloud-platform"
     ]
   }
 }
 
-# --- 7. DEPLOYMENT LOGIC (YOUR CODE) ---
-
+# --- 7. DEPLOYMENT LOGIC ---
 resource "null_resource" "docker_auth" {
   provisioner "local-exec" {
     command = "gcloud auth configure-docker"
@@ -182,7 +194,7 @@ resource "null_resource" "k8s_deploy" {
     working_dir = "${path.module}/.."
     command     = <<EOT
       echo "GETTING CREDENTIALS..."
-      gcloud container clusters get-credentials ${google_container_cluster.primary.name} --region ${var.region}
+      gcloud container clusters get-credentials ${google_container_cluster.primary.name} --zone ${var.region}-a
 
       echo "INJECTING VARIABLES & DEPLOYING..."
       
@@ -191,6 +203,7 @@ resource "null_resource" "k8s_deploy" {
           -e 's|YOUR_RAW_BUCKET_NAME|${google_storage_bucket.raw_uploads.name}|g' \
           -e 's|YOUR_CLOUD_FUNCTION_URL|${google_cloudfunctions_function.security_service.https_trigger_url}|g' \
           -e 's|YOUR_DB_CONNECTION_NAME|${google_sql_database_instance.postgres.connection_name}|g' \
+          -e 's|YOUR_DB_PASSWORD|${var.db_password}|g' \
           k8s/api.yaml | kubectl apply -f -
 
       # 2. Deploy Worker
@@ -198,6 +211,7 @@ resource "null_resource" "k8s_deploy" {
           -e 's|YOUR_RAW_BUCKET_NAME|${google_storage_bucket.raw_uploads.name}|g' \
           -e 's|YOUR_PUBLIC_BUCKET_NAME|${google_storage_bucket.processed_images.name}|g' \
           -e 's|YOUR_DB_CONNECTION_NAME|${google_sql_database_instance.postgres.connection_name}|g' \
+          -e 's|YOUR_DB_PASSWORD|${var.db_password}|g' \
           k8s/worker.yaml | kubectl apply -f -
     EOT
   }

@@ -18,6 +18,8 @@ spec:
         env:
         - name: GCP_PROJECT
           value: "YOUR_PROJECT_ID"
+        - name: DB_PASSWORD
+          value: "YOUR_DB_PASSWORD"
         - name: RAW_BUCKET
           value: "YOUR_RAW_BUCKET_NAME"
         - name: PUBLIC_BUCKET

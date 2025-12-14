@@ -151,7 +151,19 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+# Ignore Terraform Secrets and State
+terraform/terraform.tfvars
+terraform/.terraform
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
 
+# Ignore Python cache
+__pycache__/
+*.pyc
+
+# Ignore Mac system files
+.DS_Store
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore

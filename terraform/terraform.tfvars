@@ -1,2 +1,3 @@
-project_id = "your-actual-google-project-id"
+project_id = "abiding-cycle-473519-p0"
 region     = "us-central1"
+db_password = "SuperSecretPassword123!*"

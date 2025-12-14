@@ -11,7 +11,8 @@ PROJECT_ID = os.environ['GCP_PROJECT']
 SUB_ID = "compression-sub" # Must match your Terraform/PubSub Subscription name
 RAW_BUCKET = os.environ['RAW_BUCKET'] 
 PUBLIC_BUCKET = os.environ['PUBLIC_BUCKET'] # You need a separate bucket for processed images
-DB_URL = "postgresql://app_user:securepassword@127.0.0.1:5432/todo_app" # Connects via Sidecar
+DB_PASSWORD = os.environ.get("DB_PASSWORD")
+DB_URL = f"postgresql://app_user:{DB_PASSWORD}@127.0.0.1:5432/todo_app"
 
 # --- SETUP CLIENTS ---
 subscriber = pubsub_v1.SubscriberClient()
@@ -26,7 +27,12 @@ def process_message(message):
         
         todo_id = data['todo_id']
         filename = data['filename']
-        
+
+        if "jpg" not in filename:
+            print(f"Invalid filename provided for task {todo_id}")
+            message.ack()
+            return
+
         print(f"Processing Task {todo_id} (File: {filename})...")
 
         # 1. Download from Raw Bucket
@@ -74,8 +80,18 @@ def process_message(message):
         os.remove(out_filename)
 
     except Exception as e:
-        print(f"Error: {e}")
-        message.nack() # Tell Google "I failed, retry later"
+        print(f"CRITICAL ERROR processing Task {todo_id}: {e}")
+        
+        # FIX: If the error is permanent (like missing file), we MUST ACKNOWLEDGE 
+        # to stop the loop.
+        # Check for specific Google Cloud errors if possible, but for now:
+        if "404" in str(e) or "No such object" in str(e) or "NoneType" in str(e):
+            print("Error is permanent (file missing or bad data). Acknowledging message to delete it.")
+            message.ack() 
+        else:
+            # Only NACK if it's a temporary error (like DB connection timeout)
+            print("Error might be temporary. Nacking for retry.")
+            message.nack()
 
 if __name__ == "__main__":
     print(f"Listening for messages on {sub_path}...")
