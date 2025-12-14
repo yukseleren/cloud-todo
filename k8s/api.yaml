@@ -14,28 +14,31 @@ spec:
     spec:
       containers:
       - name: api
-        image: gcr.io/YOUR_PROJECT_ID/todo-api:v1 # <--- UPDATE THIS
+        # Terraform will replace YOUR_PROJECT_ID here:
+        image: gcr.io/YOUR_PROJECT_ID/todo-api:v1
         env:
         - name: GCP_PROJECT
           value: "YOUR_PROJECT_ID"
         - name: RAW_BUCKET
           value: "YOUR_RAW_BUCKET_NAME"
         - name: ENCODER_URL
-          value: "YOUR_CLOUD_FUNCTION_URL" # <--- PASTE URL HERE
+          value: "YOUR_CLOUD_FUNCTION_URL"
         
-      # The Sidecar that lets you talk to the DB securely
+      # Sidecar for Cloud SQL
       - name: cloud-sql-proxy
         image: gcr.io/cloudsql-docker/gce-proxy:1.33.0
         command:
           - "/cloud_sql_proxy"
-          - "-instances=YOUR_DB_CONNECTION_NAME=tcp:5432" # <--- UPDATE THIS
+          - "-instances=YOUR_DB_CONNECTION_NAME=tcp:5432"
+        securityContext:
+          runAsNonRoot: true
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: todo-api-service
 spec:
-  type: LoadBalancer # Gives you a Public IP
+  type: LoadBalancer
   selector:
     app: api
   ports:

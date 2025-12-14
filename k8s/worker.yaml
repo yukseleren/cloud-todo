@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: worker
-        image: gcr.io/YOUR_PROJECT_ID/todo-worker:v1 # <--- UPDATE THIS
+        image: gcr.io/YOUR_PROJECT_ID/todo-worker:v1
         env:
         - name: GCP_PROJECT
           value: "YOUR_PROJECT_ID"
@@ -23,9 +23,11 @@ spec:
         - name: PUBLIC_BUCKET
           value: "YOUR_PUBLIC_BUCKET_NAME"
         
-      # Worker also needs DB access to update status
+      # Worker also needs DB access to update the status to 'completed'
       - name: cloud-sql-proxy
         image: gcr.io/cloudsql-docker/gce-proxy:1.33.0
         command:
           - "/cloud_sql_proxy"
           - "-instances=YOUR_DB_CONNECTION_NAME=tcp:5432"
+        securityContext:
+          runAsNonRoot: true
