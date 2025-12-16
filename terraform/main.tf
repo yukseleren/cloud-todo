@@ -134,8 +134,6 @@ resource "google_cloudfunctions_function_iam_member" "invoker" {
 resource "google_container_cluster" "primary" {
   name     = "todo-cluster"
   
-  # FIX 1: Use a specific ZONE (e.g., us-central1-a) instead of a REGION.
-  # This prevents Google from creating 3 copies of your cluster.
   location = "${var.region}-a" 
   
   initial_node_count = 1
@@ -143,9 +141,8 @@ resource "google_container_cluster" "primary" {
   node_config {
     machine_type = "e2-medium"
     
-    # FIX 2: Reduce disk size from 100GB (default) to 30GB to save quota
     disk_size_gb = 30
-    disk_type    = "pd-standard" # Cheaper than SSD
+    disk_type    = "pd-standard"
     
     oauth_scopes = [
       "https://www.googleapis.com/auth/cloud-platform"
