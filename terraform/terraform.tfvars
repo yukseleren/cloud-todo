@@ -1,3 +1,3 @@
-project_id = "abiding-cycle-473519-p0"
+project_id = ""
 region     = "us-central1"
 db_password = "SuperSecretPassword123!*"
