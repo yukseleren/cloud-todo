@@ -210,6 +210,9 @@ resource "null_resource" "k8s_deploy" {
           -e 's|YOUR_DB_CONNECTION_NAME|${google_sql_database_instance.postgres.connection_name}|g' \
           -e 's|YOUR_DB_PASSWORD|${var.db_password}|g' \
           k8s/worker.yaml | kubectl apply -f -
+
+      # 3. Deploy HPAs
+      kubectl apply -f k8s/hpa.yaml
     EOT
   }
 }
