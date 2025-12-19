@@ -14,11 +14,10 @@ spec:
     spec:
       containers:
       - name: api
-        # Terraform will replace YOUR_PROJECT_ID here:
         image: gcr.io/YOUR_PROJECT_ID/todo-api:v1
         resources:
           requests:
-            cpu: 100m
+            cpu: 50m
             memory: 128Mi
           limits:
             cpu: 500m

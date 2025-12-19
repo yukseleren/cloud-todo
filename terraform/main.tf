@@ -156,8 +156,39 @@ resource "google_container_cluster" "primary" {
   name     = "todo-cluster"
   
   location = "${var.region}-a" 
-  
+
   initial_node_count = 1
+
+  # Enable Cluster Autoscaling on the default node pool
+  node_config {
+    machine_type = "e2-medium"
+    
+    disk_size_gb = 30
+    disk_type    = "pd-standard"
+    
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+  }
+
+  # Autoscaling configuration for the default node pool
+  addons_config {
+    http_load_balancing {
+      disabled = false
+    }
+  }
+}
+
+resource "google_container_node_pool" "primary_nodes" {
+  name       = "primary-node-pool"
+  location   = "${var.region}-a"
+  cluster    = google_container_cluster.primary.name
+  
+  # Autoscaling configuration
+  autoscaling {
+    min_node_count = 1
+    max_node_count = 3
+  }
 
   node_config {
     machine_type = "e2-medium"
@@ -192,11 +223,13 @@ resource "null_resource" "docker_build_push" {
       
       # Build API
       gcloud builds submit \
+        --project ${var.project_id} \
         --tag gcr.io/${var.project_id}/todo-api:v1 \
         ./app
       
       # Build Worker
       gcloud builds submit \
+        --project ${var.project_id} \
         --tag gcr.io/${var.project_id}/todo-worker:v1 \
         ./worker
     EOT
