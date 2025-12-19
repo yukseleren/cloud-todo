@@ -30,7 +30,28 @@ provider "google" {
   region  = var.region
 }
 
-# --- 2. STORAGE BUCKETS ---
+locals {
+  services = [
+    "cloudresourcemanager.googleapis.com",
+    "container.googleapis.com",
+    "sqladmin.googleapis.com",
+    "cloudfunctions.googleapis.com",
+    "pubsub.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "storage-component.googleapis.com",
+    "artifactregistry.googleapis.com",
+  ]
+}
+
+resource "google_project_service" "required" {
+  for_each = toset(local.services)
+
+  project = var.project_id
+  service = each.key
+
+  disable_on_destroy = false
+}
+
 resource "random_id" "bucket_suffix" {
   byte_length = 4
 }
@@ -167,13 +188,17 @@ resource "null_resource" "docker_build_push" {
   provisioner "local-exec" {
     working_dir = "${path.module}/.."
     command     = <<EOT
-      echo "BUILDING IMAGES..."
-      docker build -t gcr.io/${var.project_id}/todo-api:v1 ./app
-      docker build -t gcr.io/${var.project_id}/todo-worker:v1 ./worker
+      echo "SUBMITTING BUILDS TO CLOUD BUILD..."
       
-      echo "PUSHING IMAGES..."
-      docker push gcr.io/${var.project_id}/todo-api:v1
-      docker push gcr.io/${var.project_id}/todo-worker:v1
+      # Build API
+      gcloud builds submit \
+        --tag gcr.io/${var.project_id}/todo-api:v1 \
+        ./app
+      
+      # Build Worker
+      gcloud builds submit \
+        --tag gcr.io/${var.project_id}/todo-worker:v1 \
+        ./worker
     EOT
   }
 }
@@ -191,7 +216,9 @@ resource "null_resource" "k8s_deploy" {
     working_dir = "${path.module}/.."
     command     = <<EOT
       echo "GETTING CREDENTIALS..."
-      gcloud container clusters get-credentials ${google_container_cluster.primary.name} --zone ${var.region}-a
+      gcloud container clusters get-credentials ${google_container_cluster.primary.name} \ 
+      --zone ${var.region}-a \
+      --project ${var.project_id}
 
       echo "INJECTING VARIABLES & DEPLOYING..."
       
